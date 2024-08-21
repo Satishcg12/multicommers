@@ -1,6 +1,10 @@
 package types
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type VendorIPAddress struct {
 	ID       uint       `gorm:"primaryKey;autoIncrement" json:"id"`
@@ -16,17 +20,21 @@ type VendorIPAddress struct {
 }
 
 type Vendor struct {
-	ID            uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Logo          string    `gorm:"type:varchar(255)" json:"logo"`
-	CorporateName string    `gorm:"type:varchar(255)" json:"corporate_name"`
-	TradeName     string    `gorm:"type:varchar(255)" json:"trade_name"`
-	Email         string    `gorm:"type:varchar(255);not null;unique" json:"email"`
-	EmailVerified bool      `gorm:"default:false" json:"email_verified"`
-	PasswordID    uint      `gorm:"not null" json:"password_id"`
-	CreatedAt     time.Time `gorm:"autoCreateTime" json:"created_at"`
-	IPAddressID   *uint     `json:"ip_address_id,omitempty"`
+	gorm.Model
+	TenantID    string `gorm:"type:varchar(255);not null" json:"tenant_id"`
+	Logo        string `gorm:"type:varchar(255)" json:"logo"`
+	CompanyName string `gorm:"type:varchar(255);not null" json:"company_name"`
+	TradingName string `gorm:"type:varchar(255);not null" json:"trading_name"`
+
+	PhoneNo       string `gorm:"type:varchar(20)" json:"phone_no"`
+	Email         string `gorm:"type:varchar(255);not null;unique" json:"email"`
+	EmailVerified bool   `gorm:"default:false" json:"email_verified"`
+	PasswordID    uint   `gorm:"not null" json:"password_id"`
+	IPAddressID   *uint  `json:"ip_address_id,omitempty"`
+	TryCount      int    `gorm:"default:0" json:"try_count"`
 
 	// Associations
+	OTPs       []VendorOTP             `gorm:"foreignKey:VendorID" json:"otps,omitempty"`
 	Passwords  []VendorPassword        `gorm:"foreignKey:VendorID" json:"passwords,omitempty"`
 	Addresses  []VendorPhysicalAddress `gorm:"foreignKey:VendorID" json:"addresses,omitempty"`
 	SiteVisits []VendorSiteVisit       `gorm:"foreignKey:VendorID" json:"site_visits,omitempty"`
@@ -41,6 +49,16 @@ type VendorPassword struct {
 	ResetExpires    *time.Time `gorm:"type:timestamp" json:"reset_expires"`
 	Active          bool       `gorm:"default:true" json:"active"`
 	Vendor          Vendor     `gorm:"foreignKey:VendorID;constraint:OnDelete:CASCADE;" json:"vendor"`
+}
+type VendorOTP struct {
+	gorm.Model
+	VendorID  uint   `gorm:"not null" json:"vendor_id"`
+	OTP       string `gorm:"type:varchar(6);not null" json:"otp"`
+	Revoked   bool   `gorm:"default:false" json:"revoked"`
+	ExpiresAt time.Time
+
+	// Associations
+	Vendor Vendor `gorm:"foreignKey:VendorID" json:"vendor"`
 }
 
 type VendorPhysicalAddress struct {
@@ -59,8 +77,9 @@ type VendorPhysicalAddress struct {
 }
 
 type VendorSiteVisit struct {
-	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	VendorID    uint      `gorm:"not null" json:"vendor_id"`
-	IPAddressID uint      `gorm:"not null" json:"ip_address_id"`
-	VisitTime   time.Time `gorm:"autoCreateTime" json:"visit_time"`
+	ID          uint            `gorm:"primaryKey;autoIncrement" json:"id"`
+	VendorID    uint            `gorm:"not null" json:"vendor_id"`
+	IPAddressID uint            `gorm:"not null" json:"ip_address_id"`
+	IPAddress   VendorIPAddress `gorm:"foreignKey:IPAddressID" json:"ip_address"`
+	VisitTime   time.Time       `gorm:"autoCreateTime" json:"visit_time"`
 }

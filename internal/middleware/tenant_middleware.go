@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Satishcg12/multicommers/internal/database"
+	"github.com/Satishcg12/multicommers/utils/dotenv"
 	"github.com/labstack/echo/v4"
 )
 
@@ -12,23 +13,27 @@ func TenantDBMiddleware(dbManager *database.DatabaseManager) echo.MiddlewareFunc
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			// Extract the tenant ID (e.g., from subdomain or header)
-			host := c.Request().Host
-			parts := strings.Split(host, ".")
-			if len(parts) < 3 {
-				return echo.NewHTTPError(http.StatusBadRequest, "Invalid subdomain")
-			}
-			tenantID := parts[0]
+			subdomain := c.Request().Header.Get("X-Tenant-ID")
 
-			// Get the corresponding DB connection
-			dbConn, err := dbManager.GetDB(tenantID)
+			if subdomain == "" {
+				subdomain = strings.Split(c.Request().Host, ".")[0]
+			}
+			if subdomain == "" {
+				subdomain = dotenv.GetEnvOrDefault("DB_NAME", "multicommers")
+			}
+
+			// Get the tenant database
+			db, err := dbManager.GetDB(subdomain)
 			if err != nil {
-				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to tenant database")
+				return c.JSON(http.StatusInternalServerError, err.Error())
 			}
 
-			// Set the database connection in the context
-			c.Set("db", dbConn)
+			// Set the database connection on the context
+			c.Set("db", db)
 
+			// Continue processing the request
 			return next(c)
+
 		}
 	}
 }

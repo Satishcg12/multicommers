@@ -5,14 +5,14 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// RegisterAuthRoutes function
-func RegisterUserAuthRoutes(e *echo.Group) {
-	h := handler.NewAuthHandler()
+// RegisterVendorAuthRoutes function
+func RegisterVendorAuthRoutes(e *echo.Group) {
+	h := handler.NewAuthVendorHandler()
 
-	g := e.Group("/auth/user")
+	g := e.Group("/auth/vendor")
 	{
 		g.POST("/register", h.Register)
-		g.POST("/verify-email", h.VerifyEmail)
+		g.POST("/verify-otp", h.VerifyOTP)
 		g.POST("/login", h.Login)
 		g.POST("/request-reset-password", h.RequestResetPassword)
 		g.POST("/reset-password", h.ResetPassword)

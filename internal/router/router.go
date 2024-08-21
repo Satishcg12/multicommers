@@ -13,10 +13,7 @@ func Init(e *echo.Echo) {
 	// group routes
 	api := e.Group("/api")
 	{
-		// auth routes
-		routes.RegisterUserAuthRoutes(api)
-		// routes.RegisterProductRoutes(api)
-		// routes.RegisterCategoryRoutes(api)
+		routes.RegisterVendorAuthRoutes(api)
 
 	}
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Satishcg12/multicommers/internal/database"
+	myMiddleware "github.com/Satishcg12/multicommers/internal/middleware"
 	"github.com/Satishcg12/multicommers/internal/router"
 	"github.com/Satishcg12/multicommers/internal/types"
 	"github.com/Satishcg12/multicommers/utils/dotenv"
@@ -48,6 +49,18 @@ func (s *Server) Start() error {
 	// tenant manager
 	tenantManager := database.NewDatabaseManager(5 * time.Minute)
 
+	// set up main db
+	err := tenantManager.InitMainDB(
+		types.VendorIPAddress{},
+		types.Vendor{},
+		types.VendorPassword{},
+		types.VendorPhysicalAddress{},
+		types.VendorSiteVisit{},
+	)
+	if err != nil {
+		log.Fatalf("Error initializing main db: %s", err)
+	}
+
 	// set tenant manager
 	TenantManager = tenantManager
 
@@ -63,17 +76,10 @@ func (s *Server) Start() error {
 	// middlewares
 	s.e.Use(middleware.Logger())
 	s.e.Use(middleware.Recover())
+	s.e.Use(myMiddleware.TenantDBMiddleware(tenantManager))
 
 	// custom validator
 	s.e.Validator = validators.NewValidator()
-
-	// set tenant middleware
-	s.e.GET("/test", func(c echo.Context) error {
-		tenantManager.AddTenant("test", types.Example{})
-		tenantManager.GetDB("test")
-		return c.String(200, "Test")
-	})
-	// s.e.Use(myMiddleware.TenantDBMiddleware(tenantManager))
 
 	// init routes
 	router.Init(s.e)

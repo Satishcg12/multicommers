@@ -2,12 +2,14 @@ package database
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/Satishcg12/multicommers/utils/dotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type tenantInfo struct {
@@ -105,6 +107,12 @@ func (manager *DatabaseManager) AddTenant(tenantID string, models ...interface{}
 	if err != nil {
 		return err
 	}
+
+	// Check if the tenant already exists
+	if err := db.Exec("SELECT 1 FROM pg_database WHERE datname = ?", tenantID).Error; err == nil {
+		return fmt.Errorf("tenant %s already exists", tenantID)
+	}
+	// Create the tenant's database
 	createDB := fmt.Sprintf("CREATE DATABASE %s", tenantID)
 	if err := db.Exec(createDB).Error; err != nil {
 		return err
@@ -170,10 +178,66 @@ func (manager *DatabaseManager) DeleteTenant(tenantID string) error {
 	if err != nil {
 		return err
 	}
+	// check if the tenant exists
+	if err := db.Exec("SELECT 1 FROM pg_database WHERE datname = ?", tenantID).Error; err != nil {
+		return fmt.Errorf("tenant %s does not exist", tenantID)
+	}
+
+	// Drop the tenant's database
 	dropDB := fmt.Sprintf("DROP DATABASE %s", tenantID)
 	if err := db.Exec(dropDB).Error; err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// set up main db
+
+func (manager *DatabaseManager) InitMainDB(models ...interface{}) error {
+	// Create the main database
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable TimeZone=Asia/Shanghai",
+		dotenv.GetEnvOrDefault("DB_HOST", "localhost"),
+		dotenv.GetEnvOrDefault("DB_PORT", "5432"),
+		dotenv.GetEnvOrDefault("DB_USERNAME", "root"),
+		dotenv.GetEnvOrDefault("DB_PASSWORD", ""),
+		"postgres",
+	)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return err
+	}
+	// check if the main database already exists
+	if err := db.Exec("SELECT 1 FROM pg_database WHERE datname = ?", dotenv.GetEnvOrDefault("DB_NAME", "multicommers")).Error; err != nil {
+
+		// Create the main database
+		createDB := fmt.Sprintf("CREATE DATABASE %s", dotenv.GetEnvOrDefault("DB_NAME", "multicommers"))
+		if err := db.Exec(createDB).Error; err != nil {
+			return err
+		}
+	}
+
+	// Connect to the main database
+	dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable TimeZone=Asia/Shanghai",
+		dotenv.GetEnvOrDefault("DB_HOST", "localhost"),
+		dotenv.GetEnvOrDefault("DB_PORT", "5432"),
+		dotenv.GetEnvOrDefault("DB_USERNAME", "root"),
+		dotenv.GetEnvOrDefault("DB_PASSWORD", ""),
+		dotenv.GetEnvOrDefault("DB_NAME", "multicommers"),
+	)
+
+	mainDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		return err
+	}
+
+	// AutoMigrate the tables
+	if err := mainDB.AutoMigrate(models...); err != nil {
+		return err
+	}
+	log.Println("Main database initialized")
 
 	return nil
 }
